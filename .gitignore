@@ -1,0 +1,5 @@
+venv
+.ipynb_checkpoints
+.ropeproject
+.DS_STORE
+mise.toml
