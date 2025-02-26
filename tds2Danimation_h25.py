@@ -13,6 +13,7 @@ from vpython import *
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+import os
 
 # win = 500 # peut aider à définir la taille d'un autre objet visuel comme un histogramme proportionnellement à la taille du canevas.
 
@@ -20,8 +21,10 @@ import matplotlib.pyplot as plt
 Natoms = 200  # change this to have more or fewer atoms
 dt = 1E-5  # pas d'incrémentation temporel
 
+simulation_steps = 1000
+
 # Déclaration de variables physiques "Typical values"
-DIM = 2 #Nombre de degrés de liberté de la simulation
+DIM = 2 #Nombre de degrés de liberté de la simulation 
 mass = 4E-3/6E23 # helium mass
 Ratom = 0.01 # wildly exaggerated size of an atom
 k = 1.4E-23 # Boltzmann constant
@@ -83,29 +86,10 @@ def checkCollisions():
 ## ATTENTION : la boucle laisse aller l'animation aussi longtemps que souhaité, assurez-vous de savoir comment interrompre vous-même correctement (souvent `ctrl+c`, mais peut varier)
 ## ALTERNATIVE : vous pouvez bien sûr remplacer la boucle "while" par une boucle "for" avec un nombre d'itérations suffisant pour obtenir une bonne distribution statistique à l'équilibre
 
-# Classe pour stocker les résultats de la particule suivie
-class TrackedParticleData:
-    def __init__(self):
-        self.distances = []
-        self.times = []
-        self.last_wall_collision_pos = []
+particule_a_suivre = 0
+particule_a_suivre_parcours = []
 
-    def add_collision_data(self, distance, time):
-        self.distances.append(distance)
-        self.times.append(time)
-
-
-
-    def __str__(self):
-        return f"Distances: {self.distances}\nTimes: {self.times}"
-
-# Variables pour suivre la particule spécifique
-tracked_particle_id = 0
-tracked_data = TrackedParticleData()
-last_collision_time = 0
-last_position = apos[tracked_particle_id]
-
-while True:
+for step in range(simulation_steps):
     rate(300)  # limite la vitesse de calcul de la simulation pour que l'animation soit visible à l'oeil humain!
 
     #### DÉPLACE TOUTES LES SPHÈRES D'UN PAS SPATIAL deltax
@@ -117,26 +101,18 @@ while True:
         Atoms[i].pos = apos[i] = apos[i] + deltax[i]  # nouvelle position de l'atome après l'incrément de temps dt
 
     #### CONSERVE LA QUANTITÉ DE MOUVEMENT AUX COLLISIONS AVEC LES MURS DE LA BOÎTE ####
-    def check_walls(loc):
-        if abs(loc.x) > L/2:
-            if loc.x < 0:
-                p[i].x =  abs(p[i].x)  # renverse composante x au mur de gauche
-            else:
-                p[i].x =  -abs(p[i].x)   # renverse composante x au mur de droite
-        if abs(loc.y) > L/2:
-            if loc.y < 0:
-                p[i].y = abs(p[i].y)  # renverse composante y au mur du bas
-            else:
-                p[i].y =  -abs(p[i].y)  # renverse composante y au mur du haut
-
     for i in range(Natoms):
         loc = apos[i]
-        check_walls(loc) 
-
+        if abs(loc.x) > L/2:
+            if loc.x < 0: p[i].x =  abs(p[i].x)  # renverse composante x au mur de gauche
+            else: p[i].x =  -abs(p[i].x)   # renverse composante x au mur de droite
+        if abs(loc.y) > L/2:
+            if loc.y < 0: p[i].y = abs(p[i].y)  # renverse composante y au mur du bas
+            else: p[i].y =  -abs(p[i].y)  # renverse composante y au mur du haut
 
     #### LET'S FIND THESE COLLISIONS!!! ####
     hitlist = checkCollisions()
-    np_hitlist = np.array(hitlist)
+
     #### CONSERVE LA QUANTITÉ DE MOUVEMENT AUX COLLISIONS ENTRE SPHÈRES ####
     for ij in hitlist:
 
@@ -156,6 +132,13 @@ while True:
         # exclusion de cas où il n'y a pas de changements à faire
         if vrel.mag2 == 0: continue  # exactly same velocities si et seulement si le vecteur vrel devient nul, la trajectoire des 2 sphères continue alors côte à côte
         if rrel.mag > Ratom: continue  # one atom went all the way through another, la collision a été "manquée" à l'intérieur du pas deltax
+
+        if particule_a_suivre in ij:
+            if not particule_a_suivre_parcours or (step+1)*dt != particule_a_suivre_parcours[-1][1]:
+                particule_a_suivre_parcours.append((
+                    apos[particule_a_suivre],
+                    (step+1)*dt
+                ))
 
         # calcule la distance et temps d'interpénétration des sphères dures qui ne doit pas se produire dans ce modèle
         dx = dot(rrel, vrel.hat)       # rrel.mag*cos(theta) où theta is the angle between vrel and rrel:
@@ -177,16 +160,7 @@ while True:
         apos[i] = posi+(p[i]/mass)*deltat # move forward deltat in time, ramenant au même temps où sont rendues les autres sphères dans l'itération
         apos[j] = posj+(p[j]/mass)*deltat
 
-        # Enregistrer les informations pour la particule suivie
-        if tracked_particle_id in ij:
-            current_time = last_collision_time + deltat
-            current_position = apos[tracked_particle_id]
-            distance_traveled = mag(current_position - last_position)
-            time_elapsed = current_time - last_collision_time
-
-            tracked_data.add_collision_data(distance_traveled, time_elapsed)
-
-            last_collision_time = current_time
-            last_position = current_position
-
-#
+print("from vpython import vector")
+print(f"p = {p}")
+print(f"particle_path = {np.array([((p2[0] - p1[0]).mag, p2[1] - p1[1]) for p1, p2 in zip(particule_a_suivre_parcours[:-1], particule_a_suivre_parcours[1:])]).tolist()}")
+os._exit(0)
