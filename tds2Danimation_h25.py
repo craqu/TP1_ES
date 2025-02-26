@@ -14,6 +14,8 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 import os
+import pandas as pd
+
 
 # win = 500 # peut aider à définir la taille d'un autre objet visuel comme un histogramme proportionnellement à la taille du canevas.
 
@@ -24,7 +26,7 @@ dt = 1E-5  # pas d'incrémentation temporel
 simulation_steps = 1000
 
 # Déclaration de variables physiques "Typical values"
-DIM = 2 #Nombre de degrés de liberté de la simulation 
+DIM = 2 #Nombre de degrés de liberté de la simulation
 mass = 4E-3/6E23 # helium mass
 Ratom = 0.01 # wildly exaggerated size of an atom
 k = 1.4E-23 # Boltzmann constant
@@ -33,7 +35,7 @@ T = 300 # around room temperature
 #### CANEVAS DE FOND ####
 L = 1 # container is a cube L on a side
 gray = color.gray(0.7) # color of edges of container and spheres below
-animation = canvas( width=750, height=500) # , align='left')
+animation = canvas( width=750, height=500,notebook=True) # , align='left')
 animation.range = L
 # animation.title = 'Théorie cinétique des gaz parfaits'
 # s = """  Simulation de particules modélisées en sphères dures pour représenter leur trajectoire ballistique avec collisions. Une sphère est colorée et grossie seulement pour l’effet visuel permettant de suivre sa trajectoire plus facilement dans l'animation, sa cinétique est identique à toutes les autres particules.
@@ -86,10 +88,40 @@ def checkCollisions():
 ## ATTENTION : la boucle laisse aller l'animation aussi longtemps que souhaité, assurez-vous de savoir comment interrompre vous-même correctement (souvent `ctrl+c`, mais peut varier)
 ## ALTERNATIVE : vous pouvez bien sûr remplacer la boucle "while" par une boucle "for" avec un nombre d'itérations suffisant pour obtenir une bonne distribution statistique à l'équilibre
 
-particule_a_suivre = 0
-particule_a_suivre_parcours = []
 
+
+from enum import Enum
+class COL(Enum):
+    WALL = 0
+    ATOM = 1
+
+class particule:
+    """
+    Classe représentant une particule dans un système physique
+    On souhaite conserver la trajectoire totale de la particule suivie
+    """
+    def __init__(self):
+        self.id = 0
+        self.datalist = []
+    def update(self, time: float, pos:vector, vel:vector, col:Enum):
+        new_row = {
+            'time': time,
+            'positionVec': (pos.x, pos.y, pos.z),
+            'velocityVec': (vel.x, vel.y, vel.z),
+            'coll': col # type de collision, mur ou atome
+        }
+        self.datalist.append(new_row)
+
+    def _clean(self):
+        self.df = pd.DataFrame(self.datalist)
+
+
+
+atm = particule()
+time = 0
+atm.update(0,apos[atm.id],p[atm.id], COL.ATOM) # on définit le spawn comme une collision avec un mur pour simplifier
 for step in range(simulation_steps):
+    time += dt
     rate(300)  # limite la vitesse de calcul de la simulation pour que l'animation soit visible à l'oeil humain!
 
     #### DÉPLACE TOUTES LES SPHÈRES D'UN PAS SPATIAL deltax
@@ -106,17 +138,23 @@ for step in range(simulation_steps):
         if abs(loc.x) > L/2:
             if loc.x < 0: p[i].x =  abs(p[i].x)  # renverse composante x au mur de gauche
             else: p[i].x =  -abs(p[i].x)   # renverse composante x au mur de droite
+
         if abs(loc.y) > L/2:
             if loc.y < 0: p[i].y = abs(p[i].y)  # renverse composante y au mur du bas
             else: p[i].y =  -abs(p[i].y)  # renverse composante y au mur du haut
+
+        if (i == atm.id) and (abs(loc.x) > L/2 or abs(loc.y) > L/2):
+            vi = p[i]/mass
+            atm.update(time, apos[i], vi, COL.WALL)
 
     #### LET'S FIND THESE COLLISIONS!!! ####
     hitlist = checkCollisions()
 
     #### CONSERVE LA QUANTITÉ DE MOUVEMENT AUX COLLISIONS ENTRE SPHÈRES ####
     for ij in hitlist:
-
         # définition de nouvelles variables pour chaque paire de sphères en collision
+
+
         i = ij[0]  # extraction du numéro des 2 sphères impliquées à cette itération
         j = ij[1]
         ptot = p[i]+p[j]   # quantité de mouvement totale des 2 sphères
@@ -133,18 +171,12 @@ for step in range(simulation_steps):
         if vrel.mag2 == 0: continue  # exactly same velocities si et seulement si le vecteur vrel devient nul, la trajectoire des 2 sphères continue alors côte à côte
         if rrel.mag > Ratom: continue  # one atom went all the way through another, la collision a été "manquée" à l'intérieur du pas deltax
 
-        if particule_a_suivre in ij:
-            if not particule_a_suivre_parcours or (step+1)*dt != particule_a_suivre_parcours[-1][1]:
-                particule_a_suivre_parcours.append((
-                    apos[particule_a_suivre],
-                    (step+1)*dt
-                ))
 
         # calcule la distance et temps d'interpénétration des sphères dures qui ne doit pas se produire dans ce modèle
         dx = dot(rrel, vrel.hat)       # rrel.mag*cos(theta) où theta is the angle between vrel and rrel:
         dy = cross(rrel, vrel.hat).mag # rrel.mag*sin(theta)
         alpha = asin(dy/(2*Ratom))  # alpha is the angle of the triangle composed of rrel, path of atom j, and a line from the center of atom i to the center of atom j where atome j hits atom i
-        d = (2*Ratom)*cos(alpha)-dx # distance traveled into the atom from first contact
+        d = (2*Ratom) * cos(alpha) - dx # distance traveled into the atom from first contact
         deltat = d/vrel.mag         # time spent moving from first contact to position inside atom
 
         #### CHANGE L'INTERPÉNÉTRATION DES SPHÈRES PAR LA CINÉTIQUE DE COLLISION ####
@@ -159,8 +191,12 @@ for step in range(simulation_steps):
         p[j] = pcomj+mass*Vcom
         apos[i] = posi+(p[i]/mass)*deltat # move forward deltat in time, ramenant au même temps où sont rendues les autres sphères dans l'itération
         apos[j] = posj+(p[j]/mass)*deltat
+        if atm.id in ij:
+            if atm.id == i:
+                atm.update(time, apos[i], vi, COL.ATOM)
+            else:
+                atm.update(time, apos[j], vj, COL.ATOM)
 
-print("from vpython import vector")
-print(f"p = {p}")
-print(f"particle_path = {np.array([((p2[0] - p1[0]).mag, p2[1] - p1[1]) for p1, p2 in zip(particule_a_suivre_parcours[:-1], particule_a_suivre_parcours[1:])]).tolist()}")
-os._exit(0)
+atm._clean()
+
+#os._exit(0)
