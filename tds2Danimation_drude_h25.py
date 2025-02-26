@@ -13,6 +13,7 @@ from vpython import *
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+from scipy import stats
 
 # win = 500 # peut aider à définir la taille d'un autre objet visuel comme un histogramme proportionnellement à la taille du canevas.
 
@@ -85,6 +86,11 @@ def checkCollisions():
                 hitlist.append([i,j]) # liste numérotant toutes les paires de sphères en collision
     return hitlist
 
+def sample_maxwell_boltzmann_distribution():
+    a = np.sqrt(k*T/mass)
+
+    return stats.chi.rvs(DIM, 0, a) # Maxwell-Boltzmann est la distribution chi avec 3 degrés de libertés (on a en a 2 ici)
+
 #### BOUCLE PRINCIPALE POUR L'ÉVOLUTION TEMPORELLE DE PAS dt ####
 ## ATTENTION : la boucle laisse aller l'animation aussi longtemps que souhaité, assurez-vous de savoir comment interrompre vous-même correctement (souvent `ctrl+c`, mais peut varier)
 ## ALTERNATIVE : vous pouvez bien sûr remplacer la boucle "while" par une boucle "for" avec un nombre d'itérations suffisant pour obtenir une bonne distribution statistique à l'équilibre
@@ -142,11 +148,11 @@ for step in range(simulation_steps):
         #        (step+1)*dt
         #    ))
 
-        perp = vector(-rrel.y, rrel.x) # perpendiculaire à la collision
+        perp = vector(-rrel.y, rrel.x, 0) # perpendiculaire à la collision
         random_direction = -pi*random()
         new_direction = cos(random_direction) * perp + sin(random_direction) * rrel
 
-        p[i] = p[i].mag * new_direction
+        p[i] = sample_maxwell_boltzmann_distribution()*mass * new_direction # nouvelle vitesse aléatoire selon la distribution Maxwell-Boltzmann
 
         # calcule la distance et temps d'interpénétration des sphères dures qui ne doit pas se produire dans ce modèle
         #dx = dot(rrel, vrel.hat)       # rrel.mag*cos(theta) où theta is the angle between vrel and rrel:
@@ -168,3 +174,4 @@ for step in range(simulation_steps):
         #electrons_pos[i] = posi+(p[i]/mass)*deltat # move forward deltat in time, ramenant au même temps où sont rendues les autres sphères dans l'itération
         #electrons_pos[j] = posj+(p[j]/mass)*deltat
 
+print("done")
