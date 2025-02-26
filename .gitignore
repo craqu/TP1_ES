@@ -3,3 +3,4 @@ venv
 .ropeproject
 .DS_STORE
 mise.toml
+__pycache__
