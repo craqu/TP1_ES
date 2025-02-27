@@ -135,7 +135,7 @@ for step in range(simulation_steps):
         posj = ions_pos[j]
         vi = p[i]/mass   # vitesse de chacune des 2 sphères
         #vj = p[j]/mass
-        rrel = posi-posj  # vecteur pour la distance entre les centres des 2 sphères
+        rrel = posj-posi  # vecteur pour la distance entre les centres des 2 sphères
         #vrel = vj-vi   # vecteur pour la différence de vitesse entre les 2 sphères
 
         # exclusion de cas où il n'y a pas de changements à faire
