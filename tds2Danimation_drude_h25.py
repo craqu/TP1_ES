@@ -25,9 +25,12 @@ dt = 1E-6  # pas d'incrémentation temporel
 
 simulation_steps = 2000
 
+electric_field = vector(0, 2e-11, 0)
+
 # Déclaration de variables physiques "Typical values"
 DIM = 2 #Nombre de degrés de liberté de la simulation 
 mass = 9.11e-31 # helium mass
+electron_charge = 1.6e-19
 Relectron = 0.01 # just for visualisation purposes
 Rion = 0.025
 k = 1.4E-23 # Boltzmann constant
@@ -100,6 +103,7 @@ def sample_maxwell_boltzmann_distribution():
 particule_a_suivre = 0
 avg_p = [np.mean([mom.mag for mom in p])]
 particule_a_suivre_p = [p[particule_a_suivre].mag]
+average_position = [sum(electrons_pos, vector(0, 0, 0))/len(electrons_pos)]
 
 for step in range(simulation_steps):
     rate(20)  # limite la vitesse de calcul de la simulation pour que l'animation soit visible à l'oeil humain!
@@ -108,12 +112,14 @@ for step in range(simulation_steps):
     vitesse = []   # vitesse instantanée de chaque sphère
     deltax = []  # pas de position de chaque sphère correspondant à l'incrément de temps dt
     for i in range(Nelectrons):
+        p[i] += electron_charge * electric_field
         vitesse.append(p[i]/mass)   # par définition de la quantité de nouvement pour chaque sphère
         deltax.append(vitesse[i] * dt)   # différence avant pour calculer l'incrément de position
         electrons[i].pos = electrons_pos[i] = electrons_pos[i] + deltax[i]  # nouvelle position de l'atome après l'incrément de temps dt
         # On garde les électrons dans la boite
-        electrons[i].pos.x = min(max(-L/2, electrons[i].pos.x), L/2)
-        electrons[i].pos.y = min(max(-L/2, electrons[i].pos.y), L/2)
+        electrons[i].pos.x = min(max(-d, electrons[i].pos.x), d)
+        electrons[i].pos.y = min(max(-d, electrons[i].pos.y), d)
+        electrons_pos[i] = electrons[i].pos
 
     #### CONSERVE LA QUANTITÉ DE MOUVEMENT AUX COLLISIONS AVEC LES MURS DE LA BOÎTE ####
     for i in range(Nelectrons):
@@ -162,6 +168,7 @@ for step in range(simulation_steps):
 
         avg_p.append(np.mean([mom.mag for mom in p]))
         particule_a_suivre_p.append(p[particule_a_suivre].mag)
+        average_position.append(sum(electrons_pos, vector(0, 0, 0))/len(electrons_pos))
 
         # calcule la distance et temps d'interpénétration des sphères dures qui ne doit pas se produire dans ce modèle
         #dx = dot(rrel, vrel.hat)       # rrel.mag*cos(theta) où theta is the angle between vrel and rrel:
@@ -183,7 +190,9 @@ for step in range(simulation_steps):
         #electrons_pos[i] = posi+(p[i]/mass)*deltat # move forward deltat in time, ramenant au même temps où sont rendues les autres sphères dans l'itération
         #electrons_pos[j] = posj+(p[j]/mass)*deltat
 
+print("from vpython import *")
 print("import numpy as np")
 print(f"avg_p = {avg_p}")
 print(f"particule_a_suivre_p = {particule_a_suivre_p}")
+print(f"average_position = {average_position}")
 os._exit(0)
