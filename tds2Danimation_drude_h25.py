@@ -14,21 +14,22 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 from scipy import stats
+import os
 
 # win = 500 # peut aider à définir la taille d'un autre objet visuel comme un histogramme proportionnellement à la taille du canevas.
 
 # Déclaration de variables influençant le temps d'exécution de la simulation
 Nelectrons = 200  # change this to have more or fewer atoms
-Nions = 16
-dt = 1E-5  # pas d'incrémentation temporel
+Nions = 15**2
+dt = 1E-6  # pas d'incrémentation temporel
 
-simulation_steps = 1000
+simulation_steps = 2000
 
 # Déclaration de variables physiques "Typical values"
 DIM = 2 #Nombre de degrés de liberté de la simulation 
-mass = 4E-3/6E23 # helium mass
-Relectron = 0.005 # just for visualisation purposes
-Rion = 0.1
+mass = 9.11e-31 # helium mass
+Relectron = 0.01 # just for visualisation purposes
+Rion = 0.025
 k = 1.4E-23 # Boltzmann constant
 T = 300 # around room temperature
 
@@ -87,19 +88,21 @@ def checkCollisions():
     return hitlist
 
 def sample_maxwell_boltzmann_distribution():
+    T = np.mean([mom.mag**2 for mom in p]) / (mass*k*DIM)
     a = np.sqrt(k*T/mass)
 
-    return stats.chi.rvs(DIM, 0, a) # Maxwell-Boltzmann est la distribution chi avec 3 degrés de libertés (on a en a 2 ici)
+    return stats.chi.rvs(df=DIM, loc=0, scale=a) # Maxwell-Boltzmann est la distribution chi avec 3 degrés de libertés (on a en a 2 ici)
 
 #### BOUCLE PRINCIPALE POUR L'ÉVOLUTION TEMPORELLE DE PAS dt ####
 ## ATTENTION : la boucle laisse aller l'animation aussi longtemps que souhaité, assurez-vous de savoir comment interrompre vous-même correctement (souvent `ctrl+c`, mais peut varier)
 ## ALTERNATIVE : vous pouvez bien sûr remplacer la boucle "while" par une boucle "for" avec un nombre d'itérations suffisant pour obtenir une bonne distribution statistique à l'équilibre
 
 particule_a_suivre = 0
-particule_a_suivre_parcours = []
+avg_p = [np.mean([mom.mag for mom in p])]
+particule_a_suivre_p = [p[particule_a_suivre].mag]
 
 for step in range(simulation_steps):
-    rate(300)  # limite la vitesse de calcul de la simulation pour que l'animation soit visible à l'oeil humain!
+    rate(20)  # limite la vitesse de calcul de la simulation pour que l'animation soit visible à l'oeil humain!
 
     #### DÉPLACE TOUTES LES SPHÈRES D'UN PAS SPATIAL deltax
     vitesse = []   # vitesse instantanée de chaque sphère
@@ -108,6 +111,9 @@ for step in range(simulation_steps):
         vitesse.append(p[i]/mass)   # par définition de la quantité de nouvement pour chaque sphère
         deltax.append(vitesse[i] * dt)   # différence avant pour calculer l'incrément de position
         electrons[i].pos = electrons_pos[i] = electrons_pos[i] + deltax[i]  # nouvelle position de l'atome après l'incrément de temps dt
+        # On garde les électrons dans la boite
+        electrons[i].pos.x = min(max(-L/2, electrons[i].pos.x), L/2)
+        electrons[i].pos.y = min(max(-L/2, electrons[i].pos.y), L/2)
 
     #### CONSERVE LA QUANTITÉ DE MOUVEMENT AUX COLLISIONS AVEC LES MURS DE LA BOÎTE ####
     for i in range(Nelectrons):
@@ -154,6 +160,9 @@ for step in range(simulation_steps):
 
         p[i] = sample_maxwell_boltzmann_distribution()*mass * new_direction # nouvelle vitesse aléatoire selon la distribution Maxwell-Boltzmann
 
+        avg_p.append(np.mean([mom.mag for mom in p]))
+        particule_a_suivre_p.append(p[particule_a_suivre].mag)
+
         # calcule la distance et temps d'interpénétration des sphères dures qui ne doit pas se produire dans ce modèle
         #dx = dot(rrel, vrel.hat)       # rrel.mag*cos(theta) où theta is the angle between vrel and rrel:
         #dy = cross(rrel, vrel.hat).mag # rrel.mag*sin(theta)
@@ -174,4 +183,7 @@ for step in range(simulation_steps):
         #electrons_pos[i] = posi+(p[i]/mass)*deltat # move forward deltat in time, ramenant au même temps où sont rendues les autres sphères dans l'itération
         #electrons_pos[j] = posj+(p[j]/mass)*deltat
 
-print("done")
+print("import numpy as np")
+print(f"avg_p = {avg_p}")
+print(f"particule_a_suivre_p = {particule_a_suivre_p}")
+os._exit(0)
