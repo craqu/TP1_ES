@@ -112,7 +112,7 @@ for step in range(simulation_steps):
     vitesse = []   # vitesse instantanée de chaque sphère
     deltax = []  # pas de position de chaque sphère correspondant à l'incrément de temps dt
     for i in range(Nelectrons):
-        p[i] += electron_charge * electric_field
+        p[i] += electron_charge * electric_field * dt
         vitesse.append(p[i]/mass)   # par définition de la quantité de nouvement pour chaque sphère
         deltax.append(vitesse[i] * dt)   # différence avant pour calculer l'incrément de position
         electrons[i].pos = electrons_pos[i] = electrons_pos[i] + deltax[i]  # nouvelle position de l'atome après l'incrément de temps dt
